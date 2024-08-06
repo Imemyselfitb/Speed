@@ -33,7 +33,7 @@ function createSocket() {
 
         console.log(response);
         if (roundBeginningTime < 0) {
-            setTimeout(setupGame, 1000);
+            setTimeout(setupGame, 3000);
         }
     });
 
@@ -459,7 +459,7 @@ function mousePressedGame() {
             cards[i].isSelected = false;
 
             if (abs(cards[i].Value - prev.Value) != 1) {
-                if (!((cards[i].Value == 12 && prev.Value == 0) || (cards[i].Value == 12 && prev.Value == 0))) {
+                if (!((cards[i].Value == 12 && prev.Value == 0) || (prev.Value == 12 && cards[i].Value == 0))) {
                     prev.isTinted = true;
                     setTimeout(() => { prev.isTinted = false; }, 1000);
                     return;
