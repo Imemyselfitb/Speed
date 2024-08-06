@@ -10,6 +10,8 @@ let roundBeginningTime = null;
 
 let Username, RoomID;
 
+let PlayerIsBlack = false;
+
 function createSocket() {
     socket = io.connect("https://speed-fgfi.onrender.com/");
 
@@ -28,7 +30,7 @@ function createSocket() {
         roundBeginningTime = response.timeRemaining;
         BlackDeck = response.BlackDeck;
         RedDeck = response.RedDeck;
-        IsPlayerBlack = !response.IsPlayerRed;
+        PlayerIsBlack = !response.IsPlayerRed;
         roundBeginningTime = response.timeRemaining;
 
         console.log(response);
@@ -264,12 +266,10 @@ const min = (a, b) => (a < b ? a : b);
 
 let BlackDeck = [];
 let RedDeck = [];
-let PlayerIsBlack = Math.random() > 0.5;
-
 let cards = [];
 
 function setupGame() {
-    console.log("Player Is Black?", IsPlayerBlack);
+    console.log("Player Is Black?", PlayerIsBlack);
 
     currentState = allStates.game;
 
