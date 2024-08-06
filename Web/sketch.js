@@ -35,7 +35,7 @@ function createSocket() {
 
         console.log(response);
         if (roundBeginningTime <= 0) {
-            setTimeout(setupGame, 1500);
+            setupGame();
         }
     });
 
