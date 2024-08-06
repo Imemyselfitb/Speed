@@ -32,8 +32,8 @@ function createSocket() {
         roundBeginningTime = response.timeRemaining;
 
         console.log(response);
-        if (roundBeginningTime < 0) {
-            setTimeout(setupGame, 3000);
+        if (roundBeginningTime <= 0) {
+            setTimeout(setupGame, 1500);
         }
     });
 
