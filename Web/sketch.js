@@ -11,7 +11,7 @@ let roundBeginningTime = null;
 let Username, RoomID;
 
 function createSocket() {
-    socket = io.connect("http://localhost:3000");
+    socket = io.connect("https://speed-fgfi.onrender.com/");
 
     socket.on("RoomJoin", response => {
         if (!response.success) {
