@@ -459,9 +459,11 @@ function mousePressedGame() {
             cards[i].isSelected = false;
 
             if (abs(cards[i].Value - prev.Value) != 1) {
-                prev.isTinted = true;
-                setTimeout(() => { prev.isTinted = false; }, 1000);
-                return;
+                if (!((cards[i].Value == 12 && prev.Value == 0) || (cards[i].Value == 12 && prev.Value == 0))) {
+                    prev.isTinted = true;
+                    setTimeout(() => { prev.isTinted = false; }, 1000);
+                    return;
+                }
             }
 
             cards[i].Colour = prev.Colour;
