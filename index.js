@@ -88,7 +88,7 @@ io.sockets.on('connection', socket => {
                     });
                 }
 
-                if (timeRemaining < 0) clearInterval(countDown);
+                if (timeRemaining <= 0) clearInterval(countDown);
                 timeRemaining--;
             }, 1000);
         }
