@@ -6,9 +6,13 @@ let rowdiesFont;
 
 let allStates = { menu: 0, waiting: 1, game: 2 };
 let currentState = allStates.menu;
-let roundBeginningTime = null;
+let roundBeginningTime = 0;
 
-let Username, RoomID;
+let Username = undefined, RoomID;
+
+let IsPlayerBlack = false;
+
+let OpponentUsername = null;
 
 function createSocket() {
     socket = io.connect("https://speed-fgfi.onrender.com/");
@@ -31,8 +35,10 @@ function createSocket() {
         IsPlayerBlack = !response.IsPlayerRed;
         roundBeginningTime = response.timeRemaining;
 
-        console.log(response);
-        if (roundBeginningTime < 0) {
+        if (roundBeginningTime <= 0) {
+            if (Username == response.AllPlayerUsernames[0]) OpponentUsername = response.AllPlayerUsernames[1];
+            else OpponentUsername = response.AllPlayerUsernames[0];
+            
             setupGame();
         }
     });
@@ -51,6 +57,39 @@ function createSocket() {
         cards[args.NewCardIndex + 4].Value = args.NewCardValue;
         cards[args.NewCardIndex + 4].Colour = args.NewCardColour;
     });
+
+    socket.on("GameEnd", endGame);
+
+    socket.on("NewRound", user_cards => {
+        gameGUI.toggleEndRound.checked(false);
+        BlackDeck.pop();
+        RedDeck.pop();
+
+        if (selected) {
+            selected.Value = null;
+            selected.isSelected = false;
+        }
+
+        selected = null;
+
+        checkWin();
+
+        let chosenCardA = user_cards[OpponentUsername], chosenCardB = user_cards[Username];
+
+        cards[8].Colour = floor(chosenCardA / 13);
+        cards[8].Value = chosenCardA % 13;
+
+        cards[9].Colour = floor(chosenCardB / 13);
+        cards[9].Value = chosenCardB % 13;
+    });
+}
+
+function checkWin() {
+    for (let i = 0; i < 4; i++) {
+        if (cards[i].Value != null) return;
+    }
+
+    endGame(emitSocketGameWin());
 }
 
 function preload() {
@@ -79,7 +118,7 @@ function windowResized() {
 
 function mousePressed() {
     if (currentState == allStates.game) {
-        mousePressedGame();
+        setTimeout(() => mousePressedGame(), 100);
     }
 }
 
@@ -98,6 +137,7 @@ function draw() {
 
 function renderWaiting() {
     fill(0);
+    noStroke();
     textSize(width / 7);
     textAlign(CENTER, CENTER);
     textFont(rowdiesFont);
@@ -108,7 +148,7 @@ function renderWaiting() {
     textFont('Courier New');
     text(RoomID, width / 2, height / 2 + (width / 14));
 
-    if (roundBeginningTime != null) {
+    if (roundBeginningTime > 0) {
         fill(0);
         textSize(width / 14);
         textAlign(CENTER, CENTER);
@@ -161,22 +201,22 @@ let menuGUI = {
 
 function createMenuGUI() {
     // USERNAME - INPUT
-    menuGUI["Username"] = createInput('');
-    menuGUI["Username"].elt.placeholder = 'Enter Username';
-    menuGUI["Username"].elt.setAttribute('maxlength', 13);
+    menuGUI['Username'] = createInput(Username ? Username : '');
+    menuGUI['Username'].elt.placeholder = 'Enter Username';
+    menuGUI['Username'].elt.setAttribute('maxlength', 13);
 
     // HOST GAME - BUTTON
-    menuGUI["HostGameBtn"] = createButton('Host Game');
-    menuGUI["HostGameBtn"].mousePressed(hostGame);
+    menuGUI['HostGameBtn'] = createButton('Host Game');
+    menuGUI['HostGameBtn'].mousePressed(hostGame);
 
     // JOIN GAME CODE - INPUT
-    menuGUI["JoinGameCode"] = createInput('');
-    menuGUI["JoinGameCode"].elt.placeholder = 'Enter Join Code';
-    menuGUI["JoinGameCode"].elt.setAttribute('maxlength', 8);
-    menuGUI["JoinGameCode"].elt.style.textTransform = 'uppercase';
+    menuGUI['JoinGameCode'] = createInput('');
+    menuGUI['JoinGameCode'].elt.placeholder = 'Enter Join Code';
+    menuGUI['JoinGameCode'].elt.setAttribute('maxlength', 8);
+    menuGUI['JoinGameCode'].elt.style.textTransform = 'uppercase';
 
-    menuGUI["JoinGameBtn"] = createButton('Join Game');
-    menuGUI["JoinGameBtn"].mousePressed(joinGame);
+    menuGUI['JoinGameBtn'] = createButton('Join Game');
+    menuGUI['JoinGameBtn'].mousePressed(joinGame);
 
     styleMenuGUI();
 
@@ -187,28 +227,28 @@ function createMenuGUI() {
 }
 
 function styleMenuGUI() {
-    setMenuStyle(
+    setElementStyle(
         menuGUI["Username"],
         width / 2, height * 5 / 8,
         200, 50, null,
         null, 'darkred'
     );
 
-    setMenuStyle(
+    setElementStyle(
         menuGUI["HostGameBtn"],
         width / 2, height * 5 / 8 + 80,
         200, 50, null,
         '#FFFFAA', '#C24E00'
     );
 
-    setMenuStyle(
+    setElementStyle(
         menuGUI["JoinGameCode"],
         width / 2 - 120, height * 5 / 8 + 160,
         200, 50, 20,
         null, 'darkred'
     );
 
-    setMenuStyle(
+    setElementStyle(
         menuGUI["JoinGameBtn"],
         width / 2 + 120, height * 5 / 8 + 161,
         200, 50, null,
@@ -228,7 +268,7 @@ function removeMenuGUI() {
     document.body.style.backgroundColor = '#AAAAAA';
 }
 
-function setMenuStyle(elem, posx, posy, width, height, textSize, bgcolour, fntcolour) {
+function setElementStyle(elem, posx, posy, width, height, textSize, bgcolour, fntcolour) {
     elem.position(posx - width / 2, posy - height / 2);
 
     if (width) elem.style('width', `${width}px`);
@@ -241,6 +281,8 @@ function setMenuStyle(elem, posx, posy, width, height, textSize, bgcolour, fntco
 
     if (textSize) elem.style('fontSize', `${textSize}px`);
     else elem.style('fontSize', `${height * 1 / 2}px`);
+
+    elem.style('userSelect', 'none');
 
     if (bgcolour)
         elem.style('backgroundColor', bgcolour);
@@ -264,17 +306,106 @@ const min = (a, b) => (a < b ? a : b);
 
 let BlackDeck = [];
 let RedDeck = [];
-let PlayerIsBlack = Math.random() > 0.5;
 
 let cards = [];
 
+let gameGUI = {
+    toggleEndRound: null
+};
+
+let gameEndedCountDown = 0;
+let gameEndedState = null;
+
+function endGame(state) {
+    gameEndedCountDown = 10;
+    gameEndedState = state;
+
+    // Username = null;
+    gameGUI.toggleEndRound.remove();
+    RoomID = null;
+
+    const interval = setInterval(() => {
+        gameEndedCountDown--;
+        if (gameEndedCountDown > 0) return;
+
+        clearInterval(interval);
+
+        currentState = allStates.menu;
+        createMenuGUI();
+    }, 1000);
+}
+
+function emitSocketGameWin() {
+    socket.emit("GameWin", {
+        Username,
+        RoomID
+    });
+
+    return { Win: true, Reason: "You Emptied Your Cards Before your Opponent!" };
+}
+
+function emitSocketGameNewRound() {
+    let CardChosen = (IsPlayerBlack == true) ? BlackDeck[BlackDeck.length - 1] : RedDeck[RedDeck.length - 1];
+    if (CardChosen == null && gameGUI.toggleEndRound.checked()) {
+        let count = 0;
+        let first = null;
+        for (let i = 0; i < 4; i++) {
+            if (cards[i].Value != null) {
+                count++;
+                if (first == null) first = cards[i];
+            }
+        }
+
+        if (count <= 0) return endGame(emitSocketGameWin());
+        if (count > 1) {
+            console.log(count, selected);
+            if (!selected) {
+                const cardWidth = min(max(width / 8, 150), height / 3.37) - 80;
+                const errMsg = createP('<center>Deck Empty! Select a Card, Then re-press the Button!</center>');
+                errMsg.position(width / 2, height - (cardWidth * 14 / 9 + 10));
+                errMsg.style('fontWeight', 'bold');
+                errMsg.style('fontSize', '20px');
+                errMsg.style('fontFamily', 'Courier New');
+                errMsg.style('color', 'red');
+
+                gameGUI.toggleEndRound.checked(false);
+
+                setTimeout(() => errMsg.remove(), 2000);
+                return;
+            }
+
+            CardChosen = selected.Value + 13 * selected.Colour;
+        } else {
+            CardChosen = first.Value + 13 * first.Colour;
+            selected = first;
+        }
+    }
+
+    socket.emit("EndRound", {
+        Username,
+        RoomID,
+
+        // CurrentBoard: cards.map(card => card.Value + 13 * card.Colour),
+        // CurrentDeck: (IsPlayerBlack == true) ? BlackDeck : RedDeck,
+        // CurrentDeckColour: { Black: IsPlayerBlack, Red: !IsPlayerBlack },
+
+        State: gameGUI.toggleEndRound.checked(),
+        CardChosen
+    });
+}
+
+function setupGameGUI() {
+    gameGUI.toggleEndRound = createCheckbox("End Round");
+    setElementStyle(gameGUI.toggleEndRound, 175 / 2 + 10, height / 2, 175, 35, 25, '#BBFFFF', '#880000');
+    gameGUI.toggleEndRound.input(emitSocketGameNewRound);
+}
+
 function setupGame() {
-    console.log("Player Is Black?", IsPlayerBlack);
-
     currentState = allStates.game;
+    setupGameGUI();
 
-    const total_space = min(max(width / 8, 150), height / 3.37) + 20;
-    const cardWidth = total_space - 100;
+    const total_space = min(max(width / 8, 150), height / 3.37) - 20;
+    const cardWidth = total_space - 60;
 
     for (let i = 0; i < 4; i++) {
         const newCard = new Card(
@@ -285,7 +416,7 @@ function setupGame() {
             cardWidth * 7 / 5
         );
 
-        const chosen = (PlayerIsBlack == true) ? BlackDeck.pop() : RedDeck.pop();
+        const chosen = (IsPlayerBlack == true) ? BlackDeck.pop() : RedDeck.pop();
         newCard.Colour = floor(chosen / 13);
         newCard.Value = chosen % 13;
         cards.push(newCard);
@@ -300,7 +431,7 @@ function setupGame() {
             cardWidth * 7 / 5
         );
 
-        const chosen = (PlayerIsBlack == false) ? BlackDeck.pop() : RedDeck.pop();
+        const chosen = (IsPlayerBlack == false) ? BlackDeck.pop() : RedDeck.pop();
         newCard.Colour = floor(chosen / 13);
         newCard.Value = chosen % 13;
         cards.push(newCard);
@@ -317,14 +448,14 @@ function setupGame() {
             bigCardWidth * 7 / 5
         );
 
-        const chosen = (i == (PlayerIsBlack == true)) ? BlackDeck.pop() : RedDeck.pop();
+        const chosen = (i == (IsPlayerBlack == true)) ? BlackDeck.pop() : RedDeck.pop();
         newCard.Colour = floor(chosen / 13);
         newCard.Value = chosen % 13;
         cards.push(newCard);
     }
 
-    const cardBackWidth = total_space - 80;
-    deckAttributes.x = (width / 2) + total_space * 2.25;
+    const cardBackWidth = cardWidth + 20;
+    deckAttributes.x = (width / 2) + total_space * 2.4;
     deckAttributes.y = height - (cardBackWidth * 7 / 8) - 10;
     deckAttributes.width = cardBackWidth;
     deckAttributes.height = cardBackWidth * 7 / 4
@@ -344,7 +475,7 @@ function renderGame() {
         card.render();
     }
     
-    const cardBackImage = (PlayerIsBlack == true) ? cardBackBlack : cardBackRed;
+    const cardBackImage = (IsPlayerBlack == true) ? cardBackBlack : cardBackRed;
 
     fill(255);
     stroke(deckAttributes.isSelected ? color(100, 100, 255) : 0);
@@ -354,11 +485,54 @@ function renderGame() {
 
     rect(deckAttributes.x, deckAttributes.y, deckAttributes.width, deckAttributes.height);
     image(cardBackImage, deckAttributes.x, deckAttributes.y, deckAttributes.width, deckAttributes.height);
+
+    if (gameEndedCountDown > 0) {
+        noStroke();
+        fill(255, 175, 130, 220);
+        rectMode(CORNER);
+        rect(0, 0, width, height);
+
+        fill(0);
+        noStroke();
+        textSize(150);
+        textAlign(CENTER, CENTER);
+        textFont(rowdiesFont);
+
+        if (gameEndedState.Win) text('You Win!', width / 2, height / 3);
+        else text('You Lose!', width / 2, height / 3);
+
+        stroke(0);
+        strokeWeight(2);
+        textFont('Courier New');
+        textSize(25);
+        text(gameEndedState.Reason, width / 2, height / 3 + 100);
+    } else {
+        stroke(100, 100, 255);
+        strokeWeight(2);
+        textSize(20);
+        textAlign(LEFT, TOP);
+        textFont('Comic Sans');
+
+        text('Join Code:', 10, 0);
+        text(RoomID, 10, 20);
+
+        textSize(30);
+        textAlign(CENTER, TOP);
+        const cardWidth = min(max(width / 8, 150), height / 3.37) - 80;
+        text(OpponentUsername, width / 2, cardWidth * 14 / 9 + 10);
+
+        if (gameGUI.toggleEndRound.checked()) {
+            noStroke();
+            fill(255, 150);
+            rectMode(CORNER);
+            rect(0, 0, width, height);
+        }
+    }
 }
 
 function resizeGame() {
-    const total_space = min(max(width / 8, 150), height / 3.37) + 20;
-    const cardWidth = total_space - 100;
+    const total_space = min(max(width / 8, 150), height / 3.37) - 20;
+    const cardWidth = total_space - 60;
 
     for (let i = 0; i < 4; i++) {
         cards[i].x = (width / 2) + total_space * (i - 1.5);
@@ -383,11 +557,13 @@ function resizeGame() {
         cards[i + 8].height = bigCardWidth * 7 / 5;
     }
 
-    const cardBackWidth = total_space - 80;
-    deckAttributes.x = (width / 2) + total_space * 2.25;
+    const cardBackWidth = cardWidth + 20;
+    deckAttributes.x = (width / 2) + total_space * 2.4;
     deckAttributes.y = height - (cardBackWidth * 7 / 8) - 10;
     deckAttributes.width = cardBackWidth;
-    deckAttributes.height = cardBackWidth * 7 / 4
+    deckAttributes.height = cardBackWidth * 7 / 4;
+
+    setElementStyle(gameGUI.toggleEndRound, 175 / 2 + 10, height / 2, 175, 35, 25, '#BBFFFF', '#880000');
 }
 
 let selected = null;
@@ -398,8 +574,8 @@ function emitSocketGameCardPlace(from, to) {
         RoomID,
 
         // CurrentBoard: cards.map(card => card.Value + 4 * card.Colour),
-        // CurrentDeck: (PlayerIsBlack == true) ? BlackDeck : RedDeck,
-        // CurrentDeckColour: { Black: PlayerIsBlack, Red: !PlayerIsBlack },
+        // CurrentDeck: (IsPlayerBlack == true) ? BlackDeck : RedDeck,
+        // CurrentDeckColour: { Black: IsPlayerBlack, Red: !IsPlayerBlack },
 
         CurrentMove: {
             FromI: from.i, ToI: to.i,
@@ -421,11 +597,11 @@ function emitSocketGameDeckRemove(cardIndex) {
 }
 
 function deckClicked() {
-    if (((PlayerIsBlack == true) ? BlackDeck.length : RedDeck.length) <= 0) return;
+    if (((IsPlayerBlack == true) ? BlackDeck.length : RedDeck.length) <= 0) return;
 
     for (let i = 0; i < 4; i++) {
         if (cards[i].Value == null) {
-            const chosen = (PlayerIsBlack == true) ? BlackDeck.pop() : RedDeck.pop();
+            const chosen = (IsPlayerBlack == true) ? BlackDeck.pop() : RedDeck.pop();
             cards[i].Colour = floor(chosen / 13);
             cards[i].Value = chosen % 13;
             emitSocketGameDeckRemove(i);
@@ -435,6 +611,9 @@ function deckClicked() {
 }
 
 function mousePressedGame() {
+    if (abs(mouseX - (175 / 2 + 10)) <= (175 / 2) && abs(mouseY - height / 2) <= (35 / 2)) return;
+    if (gameGUI.toggleEndRound.checked()) return;
+
     const prev = selected;
 
     if (!prev) {
@@ -459,9 +638,11 @@ function mousePressedGame() {
             cards[i].isSelected = false;
 
             if (abs(cards[i].Value - prev.Value) != 1) {
-                prev.isTinted = true;
-                setTimeout(() => { prev.isTinted = false; }, 1000);
-                return;
+                if (!((cards[i].Value == 12 && prev.Value == 0) || (prev.Value == 12 && cards[i].Value == 0))) {
+                    prev.isTinted = true;
+                    setTimeout(() => { prev.isTinted = false; }, 1000);
+                    return;
+                }
             }
 
             cards[i].Colour = prev.Colour;
@@ -470,7 +651,14 @@ function mousePressedGame() {
             prev.Value = null;
 
             emitSocketGameCardPlace(prev, cards[i]);
-            return;
+
+            if (((IsPlayerBlack == true) ? BlackDeck.length : RedDeck.length) > 0) return;
+
+            for (let i = 0; i < 4; i++) {
+                if (cards[i].Value !== null) return;
+            }
+
+            return endGame(emitSocketGameWin());
         }
     }
 }

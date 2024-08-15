@@ -21,6 +21,9 @@ class Connection {
         this.is_host = false;
         this.username = null;
         this.room_id = null;
+
+        this.ending_round = false;
+        this.ending_card = null;
     }
 
     generateRoomID() {
@@ -34,10 +37,8 @@ const shuffle = (array, b, c, d) => {
 }
 
 const rooms = {};
-const connections = {};
 io.sockets.on('connection', socket => {
     const currentConnect = new Connection(socket);
-    connections[socket.id] = currentConnect;
 
     socket.on('CreateRoom', args => {
         currentConnect.username = args.Username;
@@ -79,16 +80,17 @@ io.sockets.on('connection', socket => {
                 redPlayerIndices.push(index);
             }
 
+            const AllPlayerUsernames = rooms[args.RoomID].map(connection => connection.username);
             const countDown = setInterval(() => {
                 for (let i = 0; i < rooms[args.RoomID].length; i++) {
-                    console.log(i, redPlayerIndices, redPlayerIndices.includes(i));
                     rooms[args.RoomID][i].socket.emit("MatchStarting", {
                         timeRemaining, BlackDeck, RedDeck,
-                        IsPlayerRed: redPlayerIndices.includes(i)
+                        IsPlayerRed: redPlayerIndices.includes(i), 
+                        AllPlayerUsernames
                     });
                 }
 
-                if (timeRemaining < 0) clearInterval(countDown);
+                if (timeRemaining <= 0) clearInterval(countDown);
                 timeRemaining--;
             }, 1000);
         }
@@ -108,13 +110,51 @@ io.sockets.on('connection', socket => {
         }
     });
 
+    socket.on("EndRound", args => {
+        let count = 0;
+
+        for (let user of rooms[args.RoomID]) {
+            if (args.Username == user.username) {
+                user.ending_round = args.State;
+                user.ending_card = args.CardChosen;
+            }
+
+            if (user.ending_round) count++;
+        }
+
+        if (count < rooms[args.RoomID].length) return;
+
+        for (let user of rooms[args.RoomID]) {
+            user.ending_round = false;
+            let user_cards = {}; rooms[args.RoomID].forEach(connection => user_cards[connection.username] = connection.ending_card);
+            user.socket.emit("NewRound", user_cards);
+        }
+    });
+
+    socket.on("GameWin", args => {
+        for (let user of rooms[args.RoomID]) {
+            if (args.Username != user.username) user.socket.emit("GameEnd", { Win: false, Reason: "Opponent Emptied Their Cards Before you!" });
+            user.room_id = null;
+        }
+
+        delete rooms[args.RoomID];
+    });
+
     const tickUpdate = setInterval(() => {
         socket.emit("UpdateTick");
     }, 10000);
 
     socket.on('disconnect', () => {
         clearInterval(tickUpdate);
-        delete connections[currentConnect.socket_id];
+
+        if (currentConnect.room_id && rooms[currentConnect.room_id]) {
+            for (let user = rooms[currentConnect.room_id].length - 1; user >= 0; user--) {
+                if (rooms[currentConnect.room_id][user].username == currentConnect.username) rooms[currentConnect.room_id].splice(user);
+                else rooms[currentConnect.room_id][user].socket.emit("GameEnd", { Win: true, Reason: "Opponent Disconnected!" });
+            }
+
+            delete rooms[currentConnect.room_id];
+        }
     });
 });
 
