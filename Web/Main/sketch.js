@@ -117,6 +117,7 @@ windowResized = () => {
 }
 
 mousePressed = touchStarted = () => {
+    gameGUI.toggleEndRound.style('background-color', 'red');
     if (currentState == allStates.game) {
         setTimeout(() => mousePressedGame(), 100);
     }
@@ -574,10 +575,6 @@ function emitSocketGameCardPlace(from, to) {
     socket.emit("CardPlace", {
         Username,
         RoomID,
-
-        // CurrentBoard: cards.map(card => card.Value + 4 * card.Colour),
-        // CurrentDeck: (IsPlayerBlack == true) ? BlackDeck : RedDeck,
-        // CurrentDeckColour: { Black: IsPlayerBlack, Red: !IsPlayerBlack },
 
         CurrentMove: {
             FromI: from.i, ToI: to.i,
