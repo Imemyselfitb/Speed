@@ -5,7 +5,8 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 const server = app.listen(port);
-app.use(express.static("Web"));
+app.use('/', express.static('Web/Main'));
+app.use('/instructions/', express.static('Web/Instructions'));
 console.log(`MY SOCKET SERVER IS RUNNING AT PORT ${port}`);
 
 const io = run_socket_server(server);
@@ -133,7 +134,7 @@ io.sockets.on('connection', socket => {
 
     socket.on("GameWin", args => {
         for (let user of rooms[args.RoomID]) {
-            if (args.Username != user.username) user.socket.emit("GameEnd", { Win: false, Reason: "Opponent Emptied Their Cards Before you!" });
+            if (args.Username != user.username) user.socket.emit("GameEnd", { Win: false, Reason: "Opponent Emptied Their Cards Before You!" });
             user.room_id = null;
         }
 
