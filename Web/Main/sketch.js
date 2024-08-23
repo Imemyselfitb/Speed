@@ -116,7 +116,7 @@ windowResized = () => {
     }
 }
 
-mousePressed = () => {
+mousePressed = touchStarted = () => {
     if (currentState == allStates.game) {
         setTimeout(() => mousePressedGame(), 100);
     }
