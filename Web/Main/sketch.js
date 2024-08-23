@@ -117,7 +117,6 @@ windowResized = () => {
 }
 
 mousePressed = touchStarted = () => {
-    gameGUI.toggleEndRound.style('background-color', 'red');
     if (currentState == allStates.game) {
         setTimeout(() => mousePressedGame(), 100);
     }
@@ -266,7 +265,7 @@ function styleMenuGUI() {
 
     setElementStyle(
         menuGUI["InstructionsLink"],
-        width / 2, height / 3 + width / 15,
+        width / 2, height / 3 + width / 20,
         width / size, width / (4 * size), null,
         null, null
     );
