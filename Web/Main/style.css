@@ -3,6 +3,11 @@ html, body {
     padding: 0;
 }
 
+center {
+  transform: translate(-50%, -50%);
+  background-color: lightgrey;
+}
+
 canvas {
     display: block;
 }

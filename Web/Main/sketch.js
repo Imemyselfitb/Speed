@@ -20,7 +20,12 @@ function createSocket() {
 
     socket.on("RoomJoin", response => {
         if (!response.success) {
-            console.error(response);
+            menuGUI.JoinGameCode.style('border', '3px solid red');
+            menuGUI.JoinGameCode.style('background-color', '#FFCCCC')
+            menuGUI.JoinGameCode.input(() => {
+                menuGUI.JoinGameCode.style('border', '2px solid black');
+                menuGUI.JoinGameCode.style('background-color', 'white');
+            });
             return;
         }
 
@@ -73,24 +78,42 @@ function createSocket() {
 
         selected = null;
 
-        checkWin();
+        let opponentCardIndex = user_cards[Username].CardChosenIndex;
+        if (opponentCardIndex != null) cards[4 + opponentCardIndex].Value = null;
 
-        let chosenCardA = user_cards[OpponentUsername], chosenCardB = user_cards[Username];
-
+        let chosenCardA = user_cards[OpponentUsername].CardChosen, chosenCardB = user_cards[Username].CardChosen;
         cards[8].Colour = floor(chosenCardA / 13);
         cards[8].Value = chosenCardA % 13;
 
         cards[9].Colour = floor(chosenCardB / 13);
         cards[9].Value = chosenCardB % 13;
+
+        setTimeout(checkWin, 500);
     });
 }
 
-function checkWin() {
+function checkLose() {
+    if (((IsPlayerBlack == false) ? BlackDeck[BlackDeck.length - 1] : RedDeck[RedDeck.length - 1]) > 0) return;
     for (let i = 0; i < 4; i++) {
-        if (cards[i].Value != null) return;
+        if (cards[4 + i].Value != null) return false;
+    }
+    
+    return true;
+}
+
+function checkWin() {
+    if (((IsPlayerBlack == true) ? BlackDeck[BlackDeck.length - 1] : RedDeck[RedDeck.length - 1]) > 0) return;
+    for (let i = 0; i < 4; i++) {
+        if (cards[i].Value != null) return false;
     }
 
-    endGame(emitSocketGameWin());
+    if (!checkLose()) endGame(emitSocketGameWin());
+    else endGame({
+        Win: 1/2,
+        Reason: "You Emptied your Cards at the Same time as your Opponent!"
+    });
+    
+    return true;
 }
 
 preload = () => {
@@ -336,7 +359,11 @@ function endGame(state) {
     gameEndedCountDown = 10;
     const interval = setInterval(() => {
         gameEndedCountDown--;
-        if (gameEndedCountDown <= 0) return clearInterval(interval);
+        if (gameEndedCountDown <= 0) {
+            currentState = allStates.menu;
+            createMenuGUI();
+            return clearInterval(interval);
+        }
     }, 1000);
 }
 
@@ -354,6 +381,7 @@ function emitSocketGameWin() {
 }
 
 function emitSocketGameNewRound() {
+    let CardChosenIndex = null;
     let CardChosen = ((IsPlayerBlack == true) ? BlackDeck[BlackDeck.length - 1] : RedDeck[RedDeck.length - 1])
     if (CardChosen == null && gameGUI.toggleEndRound.checked()) {
         let count = 0;
@@ -361,7 +389,7 @@ function emitSocketGameNewRound() {
         for (let i = 0; i < 4; i++) {
             if (cards[i].Value != null) {
                 count++;
-                if (first == null) first = cards[i].Value + 13 * cards[i].Colour;
+                if (first == null) first = cards[i];
             }
         }
 
@@ -370,8 +398,7 @@ function emitSocketGameNewRound() {
             if (!selected) {
                 const cardWidth = min(max(width / 8, 150), height / 3.37) - 80;
                 const errMsg = createElement('center', 'Deck Empty! Select a Card, Then re-press the Button!');
-                errMsg.style('position', 'absolute');
-                errMsg.style('top', height - (cardWidth * 14 / 9 + 10));
+                errMsg.position(width / 2, height - (cardWidth * 14 / 9 + 20));
                 errMsg.style('fontWeight', 'bold');
                 errMsg.style('textAlign', 'center');
                 errMsg.style('fontSize', '20px');
@@ -385,8 +412,10 @@ function emitSocketGameNewRound() {
             }
 
             CardChosen = selected.Value + 13 * selected.Colour;
+            CardChosenIndex = selected.i;
         } else {
             CardChosen = first.Value + 13 * first.Colour;
+            CardChosenIndex = first.i;
             selected = first;
         }
     }
@@ -396,7 +425,10 @@ function emitSocketGameNewRound() {
         RoomID,
             
         State: gameGUI.toggleEndRound.checked(),
-        CardChosen
+        CardChosen: {
+            CardChosen,
+            CardChosenIndex
+        }
     });
 }
 
@@ -460,12 +492,9 @@ function setupGame() {
         cards.push(newCard);
     }
 
-    const cardBackWidth = cardWidth + 20;
-    deckAttributes.x = (width / 2) + total_space * 2.4;
-    deckAttributes.y = height - (cardBackWidth * 7 / 8) - 10;
-    deckAttributes.width = cardBackWidth;
-    deckAttributes.height = cardBackWidth * 7 / 4
     document.body.style.backgroundColor = '#CCCCCC';
+    
+    resizeGame();
 }
 
 let deckAttributes = {
@@ -504,7 +533,8 @@ function renderGame() {
         textAlign(CENTER, CENTER);
         textFont(rowdiesFont);
 
-        if (gameEndedState.Win) text('You Win!', width / 2, height / 3);
+        if (gameEndedState.Win === true) text('You Win!', width / 2, height / 3);
+        else if (gameEndedState.Win == 1/2) text('You Tied!', width / 2, height / 3);
         else text('You Lose!', width / 2, height / 3);
 
         stroke(0);

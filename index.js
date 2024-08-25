@@ -66,7 +66,7 @@ io.sockets.on('connection', socket => {
         socket.emit("RoomJoin", { success: true, Username: args.Username, RoomID: args.RoomID });
 
         if (rooms[args.RoomID].length >= 2) {
-            let timeRemaining = 1;
+            let timeRemaining = 5;
 
             const DeckSize = 13 * 2;
             const BlackDeck = shuffle(Array(DeckSize).fill(0).map((_elem, index) => ((index < 13) ? index : index + 13)));
@@ -133,6 +133,7 @@ io.sockets.on('connection', socket => {
     });
 
     socket.on("GameWin", args => {
+	if (rooms[args.RoomID] == null) return;
         for (let user of rooms[args.RoomID]) {
             if (args.Username != user.username) user.socket.emit("GameEnd", { Win: false, Reason: "Opponent Emptied Their Cards Before You!" });
             user.room_id = null;
