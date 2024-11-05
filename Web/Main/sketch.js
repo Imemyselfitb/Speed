@@ -7,13 +7,15 @@ let allStates = { menu: 0, waiting: 1, game: 2 };
 let currentState = allStates.menu;
 let roundBeginningTime = 0;
 
-let Username = undefined, RoomID;
+let Username = undefined, TrueUsername = undefined, RoomID;
 
 let IsPlayerBlack = false;
 
 let OpponentUsername = null;
 
 let currentPageURL = null;
+
+let IsSpectator = false;
 
 function createSocket() {
     socket = io.connect(currentPageURL);
@@ -39,35 +41,84 @@ function createSocket() {
         BlackDeck = response.BlackDeck;
         RedDeck = response.RedDeck;
         IsPlayerBlack = !response.IsPlayerRed;
-        roundBeginningTime = response.timeRemaining;
+        IsSpectator = response.IsSpectator;
+        TrueUsername = Username;
 
         if (roundBeginningTime <= 0) {
             if (Username == response.AllPlayerUsernames[0]) OpponentUsername = response.AllPlayerUsernames[1];
             else OpponentUsername = response.AllPlayerUsernames[0];
 
+            cards = [];
             setupGame();
+        }
+    });
+
+    socket.on("StartMatch", response => {
+        IsPlayerBlack = !response.IsPlayerRed;
+        IsSpectator = response.IsSpectator;
+        roundBeginningTime = -10;
+
+        TrueUsername = Username;
+        Username = response.AllPlayerUsernames[IsPlayerBlack ? 1 : 0];
+        OpponentUsername = response.AllPlayerUsernames[IsPlayerBlack ? 0 : 1];
+
+        BlackDeck = response.BlackDeck;
+        RedDeck = response.RedDeck;
+        cards = [];
+        setupGame();
+
+        // Setup Game Pops off cards from the deck; reset them. 
+        BlackDeck = response.BlackDeck;
+        RedDeck = response.RedDeck;
+
+        for (let i = 0; i < 10; i++) {
+            cards[i].Value = response.Cards[i].Value;
+            cards[i].Colour = response.Cards[i].Colour;
         }
     });
 
     socket.on("UpdateTick", () => { });
 
-    socket.on("PlacedCard", args => {
-        cards[args.CurrentMove.FromI + 4].Value = args.CurrentMove.FromValue;
-        cards[args.CurrentMove.FromI + 4].Colour = args.CurrentMove.FromColour;
+    socket.on("CurrentDeck", callback => {
+        callback({
+            BlackDeck,
+            RedDeck,
+            Cards: cards.map(card => { return { Colour: card.Colour, Value: card.Value } })
+        });
+    });
 
-        cards[9 - args.CurrentMove.ToI].Value = args.CurrentMove.ToValue;
-        cards[9 - args.CurrentMove.ToI].Colour = args.CurrentMove.ToColour;
+    socket.on("PlacedCard", args => {
+        if (IsPlayerBlack != args.IsPlayerBlack) {
+            cards[args.CurrentMove.FromI + 4].Value = args.CurrentMove.FromValue;
+            cards[args.CurrentMove.FromI + 4].Colour = args.CurrentMove.FromColour;
+
+            cards[9 - args.CurrentMove.ToI].Value = args.CurrentMove.ToValue;
+            cards[9 - args.CurrentMove.ToI].Colour = args.CurrentMove.ToColour;
+        } else {
+            cards[args.CurrentMove.FromI].Value = args.CurrentMove.FromValue;
+            cards[args.CurrentMove.FromI].Colour = args.CurrentMove.FromColour;
+
+            cards[8 + args.CurrentMove.ToI].Value = args.CurrentMove.ToValue;
+            cards[8 + args.CurrentMove.ToI].Colour = args.CurrentMove.ToColour;
+        }
     });
 
     socket.on("PoppedDeck", args => {
-        cards[args.NewCardIndex + 4].Value = args.NewCardValue;
-        cards[args.NewCardIndex + 4].Colour = args.NewCardColour;
+        if (IsPlayerBlack != args.IsPlayerBlack) {
+            cards[args.NewCardIndex + 4].Value = args.NewCardValue;
+            cards[args.NewCardIndex + 4].Colour = args.NewCardColour;
+        } else {
+            cards[args.NewCardIndex].Value = args.NewCardValue;
+            cards[args.NewCardIndex].Colour = args.NewCardColour;
+        }
     });
 
     socket.on("GameEnd", endGame);
 
     socket.on("NewRound", user_cards => {
-        gameGUI.toggleEndRound.checked(false);
+        if (!IsSpectator)
+            gameGUI.toggleEndRound.checked(false);
+
         BlackDeck.pop();
         RedDeck.pop();
 
@@ -78,7 +129,7 @@ function createSocket() {
 
         selected = null;
 
-        let opponentCardIndex = user_cards[Username].CardChosenIndex;
+        let opponentCardIndex = user_cards[OpponentUsername].CardChosenIndex;
         if (opponentCardIndex != null) cards[4 + opponentCardIndex].Value = null;
 
         let chosenCardA = user_cards[OpponentUsername].CardChosen, chosenCardB = user_cards[Username].CardChosen;
@@ -225,7 +276,7 @@ let menuGUI = {
 
 function createMenuGUI() {
     // USERNAME - INPUT
-    menuGUI['Username'] = createInput(Username ? Username : '');
+    menuGUI['Username'] = createInput(TrueUsername ? TrueUsername : '');
     menuGUI['Username'].elt.placeholder = 'Enter Username';
     menuGUI['Username'].elt.setAttribute('maxlength', 13);
 
@@ -354,7 +405,9 @@ let gameEndedState = null;
 let gameEndedCountDown = 0;
 
 function endGame(state) {
-    gameGUI.toggleEndRound.remove();
+    if (!IsSpectator)
+        gameGUI.toggleEndRound.remove();
+
     gameEndedState = state;
     gameEndedCountDown = 10;
     const interval = setInterval(() => {
@@ -381,6 +434,8 @@ function emitSocketGameWin() {
 }
 
 function emitSocketGameNewRound() {
+    if (IsSpectator) return;
+
     let CardChosenIndex = null;
     let CardChosen = ((IsPlayerBlack == true) ? BlackDeck[BlackDeck.length - 1] : RedDeck[RedDeck.length - 1])
     if (CardChosen == null && gameGUI.toggleEndRound.checked()) {
@@ -440,7 +495,9 @@ function setupGameGUI() {
 
 function setupGame() {
     currentState = allStates.game;
-    setupGameGUI();
+
+    if (!IsSpectator)
+        setupGameGUI();
 
     const total_space = min(max(width / 8, 150), height / 3.37) - 20;
     const cardWidth = total_space - 60;
@@ -533,7 +590,8 @@ function renderGame() {
         textAlign(CENTER, CENTER);
         textFont(rowdiesFont);
 
-        if (gameEndedState.Win === true) text('You Win!', width / 2, height / 3);
+        if (IsSpectator) text(gameEndedState.WinnerUser + ' Wins!', width / 2, height / 3);
+        else if (gameEndedState.Win === true) text('You Win!', width / 2, height / 3);
         else if (gameEndedState.Win == 1/2) text('You Tied!', width / 2, height / 3);
         else text('You Lose!', width / 2, height / 3);
 
@@ -551,7 +609,7 @@ function renderGame() {
         const cardWidth = min(max(width / 8, 150), height / 3.37) - 80;
         text(OpponentUsername, width / 2, cardWidth * 14 / 9 + 10);
 
-        if (gameGUI.toggleEndRound.checked()) {
+        if (IsSpectator || gameGUI.toggleEndRound.checked()) {
             noStroke();
             fill(255, 150);
             rectMode(CORNER);
@@ -595,7 +653,8 @@ function resizeGame() {
     deckAttributes.width = cardBackWidth;
     deckAttributes.height = cardBackWidth * 7 / 4;
 
-    setElementStyle(gameGUI.toggleEndRound, 175 / 2 + 10, height / 2, 175, 35, 25, '#BBFFFF', '#880000');
+    if (!IsSpectator)
+        setElementStyle(gameGUI.toggleEndRound, 175 / 2 + 10, height / 2, 175, 35, 25, '#BBFFFF', '#880000');
 }
 
 let selected = null;
@@ -604,6 +663,7 @@ function emitSocketGameCardPlace(from, to) {
     socket.emit("CardPlace", {
         Username,
         RoomID,
+        IsPlayerBlack,
 
         CurrentMove: {
             FromI: from.i, ToI: to.i,
@@ -617,6 +677,7 @@ function emitSocketGameDeckRemove(cardIndex) {
     socket.emit("DeckPop", {
         Username,
         RoomID,
+        IsPlayerBlack,
 
         NewCardValue: cards[cardIndex].Value,
         NewCardColour: cards[cardIndex].Colour,
@@ -640,6 +701,7 @@ function deckClicked() {
 
 function mousePressedGame() {
     if (abs(mouseX - (175 / 2 + 10)) <= (175 / 2) && abs(mouseY - height / 2) <= (35 / 2)) return;
+    if (IsSpectator) return;
     if (gameGUI.toggleEndRound.checked()) return;
 
     const prev = selected;
