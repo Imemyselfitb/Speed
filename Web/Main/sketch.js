@@ -622,7 +622,7 @@ function renderGame() {
         strokeWeight(2);
         textFont('Courier New');
         textSize(25);
-        text(gameEndedState.Reason, width / 2, height / 3 + 100);
+        text(gameEndedState.Reason, width / 2, height / 3 + 120);
     } else {
         textSize(30);
         strokeWeight(2);
