@@ -125,6 +125,7 @@ io.sockets.on('connection', socket => {
     });
 
     socket.on("CardPlace", args => {
+        if (rooms[args.RoomID] == undefined) return;
         for (let user of rooms[args.RoomID]) {
             if (args.Username == user.username) continue;
             user.socket.emit("PlacedCard", args);
@@ -132,6 +133,7 @@ io.sockets.on('connection', socket => {
     });
 
     socket.on("DeckPop", args => {
+        if (rooms[args.RoomID] == undefined) return;
         for (let user of rooms[args.RoomID]) {
             if (args.Username == user.username) continue;
             user.socket.emit("PoppedDeck", args);
@@ -139,6 +141,8 @@ io.sockets.on('connection', socket => {
     });
 
     socket.on("EndRound", args => {
+        if (rooms[args.RoomID] == undefined) return;
+
         let count = 0;
 
         for (let user of rooms[args.RoomID]) {
@@ -160,7 +164,8 @@ io.sockets.on('connection', socket => {
     });
 
     socket.on("GameWin", args => {
-	    if (rooms[args.RoomID] == null) return;
+        if (rooms[args.RoomID] == null) return;
+
         for (let user of rooms[args.RoomID]) {
             if (args.Username != user.username)
                 user.socket.emit(
