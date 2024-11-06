@@ -33,6 +33,7 @@ function createSocket() {
 
         removeMenuGUI();
         RoomID = response.RoomID;
+        setupWaitingGUI();
         currentState = allStates.waiting;
     });
 
@@ -185,9 +186,35 @@ windowResized = () => {
     resizeCanvas(windowWidth - 20, windowHeight - 20);
     if (currentState == allStates.menu) {
         styleMenuGUI();
+    } else if (currentState == allStates.waiting) {
+        resizeWiaitingGUI();
     } else if (currentState == allStates.game) {
         resizeGame();
     }
+}
+
+let waitingRoomCode = null;
+
+function setupWaitingGUI() {
+    waitingRoomCode = createDiv(RoomID);
+
+    resizeWiaitingGUI();
+    waitingRoomCode.style('fontFamily', 'Courier New');
+    waitingRoomCode.style("color", "#FF00FF");
+}
+
+function deleteWaitingGUI() {
+    waitingRoomCode.remove();
+    waitingRoomCode = null;
+}
+
+function resizeWiaitingGUI() {
+    waitingRoomCode.style("position", "absolute");
+    waitingRoomCode.style("top", (height / 2 + (width / 14)) + "px");
+    waitingRoomCode.style("transform", "translateY(-50%)");
+    waitingRoomCode.style("fontSize", (width / 7) + "px");
+    waitingRoomCode.style("textAlign", "center");
+    waitingRoomCode.style("width", "100%");
 }
 
 mousePressed = touchStarted = () => {
@@ -216,11 +243,6 @@ function renderWaiting() {
     textAlign(CENTER, CENTER);
     textFont(rowdiesFont);
     text('Join Code:', width / 2, height / 2 - (width / 14));
-
-    fill(255, 0, 255);
-    textSize(width / 7);
-    textFont('Courier New');
-    text(RoomID, width / 2, height / 2 + (width / 14));
 
     if (roundBeginningTime > 0) {
         fill(0);
@@ -494,6 +516,7 @@ function setupGameGUI() {
 }
 
 function setupGame() {
+    deleteWaitingGUI();
     currentState = allStates.game;
 
     if (!IsSpectator)
