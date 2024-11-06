@@ -60,8 +60,8 @@ function createSocket() {
         roundBeginningTime = -10;
 
         TrueUsername = Username;
-        Username = response.AllPlayerUsernames[IsPlayerBlack ? 1 : 0];
-        OpponentUsername = response.AllPlayerUsernames[IsPlayerBlack ? 0 : 1];
+        Username = response.AllPlayerUsernames[IsPlayerBlack ? 0 : 1];
+        OpponentUsername = response.AllPlayerUsernames[IsPlayerBlack ? 1 : 0];
 
         BlackDeck = response.BlackDeck;
         RedDeck = response.RedDeck;
