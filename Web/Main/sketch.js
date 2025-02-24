@@ -320,10 +320,12 @@ function createMenuGUI() {
 
     styleMenuGUI();
 
+    document.body.style.backgroundSize = '700px';
+    document.body.style.backgroundClip = 'border-box';
     document.body.style.backgroundImage = 'url(Cards.png)';
     document.body.style.backgroundRepeat = 'repeat';
-    document.body.style.backgroundBlendMode = 'lighten';
-    document.body.style.backgroundColor = '#DDDDDD';
+    document.body.style.backgroundBlendMode = 'screen';
+    document.body.style.backgroundColor = '#CCCCCC';
 }
 
 function styleMenuGUI() {
@@ -472,7 +474,7 @@ function emitSocketGameNewRound() {
 
         if (count <= 0) return endGame(emitSocketGameWin());
         else if (count > 1) {
-            if (!selected) {
+            if (!selected || selected.Colour === null) {
                 const cardWidth = min(max(width / 8, 150), height / 3.37) - 80;
                 const errMsg = createElement('center', 'Deck Empty! Select a Card, Then re-press the Button!');
                 errMsg.position(width / 2, height - (cardWidth * 14 / 9 + 20));
@@ -642,9 +644,9 @@ function renderGame() {
 }
 
 function resizeGame() {
-    const tsp = map(height, 200, 700, max(width / 8, 150) - 10, max(width / 8, 150));
-    const total_space = map(width, 300, 1500, tsp * 0.5, tsp - 30);
-    const cardWidth = tsp - 100;
+    const tsp = min(map(width, 100, 1500, 100, 150), map(height, 100, 700, 100, 150));
+    const total_space = map(width, 100, 1500, tsp * 0.5, tsp * 0.98);
+    const cardWidth = tsp - 50;
     const offset = map(width, 300, 1500, 2, 1.5);
 
     for (let i = 0; i < 4; i++) {
@@ -808,11 +810,19 @@ class Card {
     calculatePos() {
         const i = this.Value, j = this.Colour;
 
+        this.SourceWidth = (1751 / 13);
+        this.SourceHeight = (808 / 4);
+
+        this.SourceX = this.SourceWidth  * i;
+        this.SourceY = this.SourceHeight * j;
+
+        /*
         this.SourceX = (67.2 * i + 1) + (2 * (i != 0));
         this.SourceY = 106 * j + (2 * (i != 0));
 
         this.SourceWidth = 64 - (4 * (i != 0));
         this.SourceHeight = 99 - (5 * (i != 0));
+        */
     }
 
     render() {
@@ -821,15 +831,12 @@ class Card {
         rectMode(CENTER);
 
         if (this.isTinted) {
-            fill(200, 150, 200);
-            stroke(this.isSelected ? color(50, 50, 200) : color(150, 50, 150));
+            fill(200, 150, 200, 100);
+            stroke(this.isSelected ? color(50, 50, 200) : color(100, 50, 100));
         } else {
-            fill(255);
+            fill(255, 255, 255, 255 * (this.Value == null));
             stroke(this.isSelected ? color(100, 100, 255) : 0);
         }
-
-        strokeWeight(5);
-        rect(this.x, this.y, this.width + 10, this.height + 10);
 
         if (this.Value != null) {
             if (this.isTinted) tint(200, 150, 200);
@@ -841,5 +848,8 @@ class Card {
             );
             if (this.isTinted) tint(255);
         }
+
+        strokeWeight(this.width / 29.2);
+        rect(this.x, this.y, this.width, this.height, 2);
     }
 }
