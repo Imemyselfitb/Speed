@@ -474,7 +474,7 @@ function emitSocketGameNewRound() {
 
         if (count <= 0) return endGame(emitSocketGameWin());
         else if (count > 1) {
-            if (!selected || selected.Colour === null) {
+            if (!selected || selected.Colour === null || selected.Value === null) {
                 const cardWidth = min(max(width / 8, 150), height / 3.37) - 80;
                 const errMsg = createElement('center', 'Deck Empty! Select a Card, Then re-press the Button!');
                 errMsg.position(width / 2, height - (cardWidth * 14 / 9 + 20));
